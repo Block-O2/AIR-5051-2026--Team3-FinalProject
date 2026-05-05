@@ -1,0 +1,220 @@
+<launch>
+  <!-- 机械臂 -->
+  <arg name="robot_name" default="sgr532"/>
+  <arg name="robot_model" default="$(arg robot_name)"/>
+  <arg name="node_name" default="language_guided_grasp_node"/>
+  <arg name="sgr_ctrl_init_pose" default="true"/>
+  <include file="$(find sagittarius_moveit)/launch/demo_true.launch" />
+  <node pkg="sagittarius_object_color_detector" type="sgr_ctrl.py" name="sgr_ctrl_node" output="screen" ns="$(arg robot_name)">
+    <param name="init_pose" value="$(arg sgr_ctrl_init_pose)"/>
+  </node>
+
+  <!-- 摄像头 -->
+  <arg name="video_dev" default="/dev/video0" />
+  <arg name="image_width" default="640" />
+  <arg name="image_height" default="480" />
+  <arg name="framerate" default="10" />
+  <arg name="pixel_format" default="mjpeg" />
+  <arg name="io_method" default="mmap" />
+  <arg name="usb_cam_output" default="log" />
+  <arg name="usb_cam_stderr_log" default="$(env HOME)/.ros/log/usb_cam_stderr.log" />
+  <include file="$(find sagittarius_object_color_detector)/launch/usb_cam.launch">
+    <arg name="video_dev"	value="$(arg video_dev)"/>
+    <arg name="image_width" value="$(arg image_width)"/>
+    <arg name="image_height" value="$(arg image_height)"/>
+    <arg name="framerate" value="$(arg framerate)"/>
+    <arg name="pixel_format" value="$(arg pixel_format)"/>
+    <arg name="io_method" value="$(arg io_method)"/>
+    <arg name="output" value="$(arg usb_cam_output)"/>
+    <arg name="stderr_log" value="$(arg usb_cam_stderr_log)"/>
+  </include>
+
+  <!-- 抓取例程 -->
+  <arg name="vision_config" default="$(find sagittarius_object_color_detector)/config/vision_config_pick_front.yaml"/>
+  <arg name="perception_backend" default="grounding_dino"/>
+  <arg name="groundingdino_config" default="/mnt/d/ai_models/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"/>
+  <arg name="groundingdino_weights" default="/mnt/d/ai_models/GroundingDINO/weights/groundingdino_swint_ogc.pth"/>
+  <arg name="cuda_home" default="/usr/local/cuda-12.1"/>
+  <arg name="torch_lib_dir" default="/mnt/d/ai_models/groundingdino-venv/lib/python3.8/site-packages/torch/lib"/>
+  <arg name="default_target_text" default=""/>
+  <arg name="target_topic" default="/grasp_target_text"/>
+  <arg name="device" default="cuda"/>
+  <arg name="box_threshold" default="0.35"/>
+  <arg name="text_threshold" default="0.25"/>
+  <arg name="min_grasp_score" default="0.35"/>
+  <arg name="min_target_text_length" default="2"/>
+  <arg name="stable_required" default="5"/>
+  <arg name="center_tolerance" default="8.0"/>
+  <arg name="pick_z" default="0.015"/>
+  <arg name="publish_annotated_image" default="true"/>
+  <arg name="annotated_image_topic" default="/language_guided_grasp/annotated_image"/>
+  <arg name="state_topic" default="/language_guided_grasp/state"/>
+  <arg name="save_annotated_image" default="false"/>
+  <arg name="annotated_image_path" default="/tmp/language_guided_grasp_latest.jpg"/>
+  <arg name="save_raw_image" default="false"/>
+  <arg name="raw_image_path" default="/tmp/language_guided_grasp_raw.jpg"/>
+  <arg name="allow_start_without_groundingdino" default="false"/>
+  <arg name="allow_start_without_backend" default="$(arg allow_start_without_groundingdino)"/>
+  <arg name="execute_grasp" default="true"/>
+  <arg name="move_to_search_pose_on_startup" default="true"/>
+  <arg name="search_pose_mode" default="xyz_rpy"/>
+  <arg name="search_pose_x" default="0.20"/>
+  <arg name="search_pose_y" default="0.00"/>
+  <arg name="search_pose_z" default="0.22"/>
+  <arg name="search_pose_roll" default="0.0"/>
+  <arg name="search_pose_pitch" default="1.57"/>
+  <arg name="search_pose_yaw" default="0.0"/>
+  <arg name="pick_view_via_intermediate" default="false"/>
+  <arg name="pick_view_allow_direct_fallback" default="true"/>
+  <arg name="pick_view_recover_via_stay" default="false"/>
+  <arg name="pick_view_recover_pause_sec" default="0.4"/>
+  <arg name="pick_view_move_retries" default="2"/>
+  <arg name="pick_view_retry_interval" default="0.2"/>
+  <arg name="pick_intermediate_x" default="$(arg search_pose_x)"/>
+  <arg name="pick_intermediate_y" default="0.0"/>
+  <arg name="pick_intermediate_z" default="0.30"/>
+  <arg name="pick_intermediate_roll" default="$(arg search_pose_roll)"/>
+  <arg name="pick_intermediate_pitch" default="$(arg search_pose_pitch)"/>
+  <arg name="pick_intermediate_yaw" default="0.0"/>
+  <arg name="return_to_search_pose_after_grasp" default="false"/>
+  <arg name="pick_orientation_mode" default="fixed"/>
+  <arg name="drop_after_grasp" default="true"/>
+  <arg name="clear_target_after_success" default="true"/>
+  <arg name="clear_target_after_failure" default="true"/>
+  <arg name="drop_x" default="0.15"/>
+  <arg name="drop_y" default="0.24"/>
+  <arg name="drop_z" default="0.20"/>
+  <arg name="dynamic_place_z" default="$(arg drop_z)"/>
+  <arg name="relative_place_offset_y" default="0.05"/>
+  <arg name="rejection_motion_enabled" default="false"/>
+  <arg name="rejection_yaw_delta" default="0.30"/>
+  <arg name="rejection_cycles" default="1"/>
+  <arg name="rejection_pause_sec" default="0.15"/>
+  <arg name="place_front_view_enabled" default="true"/>
+  <arg name="place_front_view_vision_config" default="$(find sagittarius_object_color_detector)/config/vision_config_place_front.yaml"/>
+  <arg name="place_front_view_x" default="0.20"/>
+  <arg name="place_front_view_y" default="0.00"/>
+  <arg name="place_front_view_z" default="0.22"/>
+  <arg name="place_front_view_roll" default="0.0"/>
+  <arg name="place_front_view_pitch" default="1.57"/>
+  <arg name="place_front_view_yaw" default="0.0"/>
+  <arg name="place_scan_view_order" default="front"/>
+  <arg name="scan_view_order" default="front"/>
+  <arg name="scan_attempts_per_view" default="2"/>
+  <arg name="scan_stable_required" default="2"/>
+  <arg name="scan_retry_interval" default="0.2"/>
+  <arg name="scan_settle_sec" default="0.2"/>
+  <arg name="left_view_enabled" default="false"/>
+  <arg name="left_view_vision_config" default=""/>
+  <arg name="left_view_x" default="0.23"/>
+  <arg name="left_view_y" default="0.10"/>
+  <arg name="left_view_z" default="0.23"/>
+  <arg name="left_view_roll" default="0.0"/>
+  <arg name="left_view_pitch" default="1.57"/>
+  <arg name="left_view_yaw" default="1.10"/>
+  <arg name="right_view_enabled" default="false"/>
+  <arg name="right_view_vision_config" default=""/>
+  <arg name="right_view_x" default="0.23"/>
+  <arg name="right_view_y" default="-0.10"/>
+  <arg name="right_view_z" default="0.23"/>
+  <arg name="right_view_roll" default="0.0"/>
+  <arg name="right_view_pitch" default="1.57"/>
+  <arg name="right_view_yaw" default="-1.10"/>
+  <node pkg="sagittarius_object_color_detector" type="language_guided_grasp.py" name="$(arg node_name)" output="screen">
+    <env name="CUDA_HOME" value="$(arg cuda_home)"/>
+    <env name="PATH" value="$(arg cuda_home)/bin:$(env PATH)"/>
+    <env name="LD_LIBRARY_PATH" value="$(arg torch_lib_dir):$(env LD_LIBRARY_PATH)"/>
+    <param name ="vision_config" value = "$(arg vision_config)"/>
+    <param name ="arm_name" value = "$(arg robot_name)"/>
+    <param name ="perception_backend" value = "$(arg perception_backend)"/>
+    <param name ="perception_config" value = "$(arg groundingdino_config)"/>
+    <param name ="perception_weights" value = "$(arg groundingdino_weights)"/>
+    <param name ="groundingdino_config" value = "$(arg groundingdino_config)"/>
+    <param name ="groundingdino_weights" value = "$(arg groundingdino_weights)"/>
+    <param name ="default_target_text" value = "$(arg default_target_text)"/>
+    <param name ="target_topic" value = "$(arg target_topic)"/>
+    <param name ="device" value = "$(arg device)"/>
+    <param name ="box_threshold" value = "$(arg box_threshold)"/>
+    <param name ="text_threshold" value = "$(arg text_threshold)"/>
+    <param name ="min_grasp_score" value = "$(arg min_grasp_score)"/>
+    <param name ="min_target_text_length" value = "$(arg min_target_text_length)"/>
+    <param name ="stable_required" value = "$(arg stable_required)"/>
+    <param name ="center_tolerance" value = "$(arg center_tolerance)"/>
+    <param name ="pick_z" value = "$(arg pick_z)"/>
+    <param name ="publish_annotated_image" value = "$(arg publish_annotated_image)"/>
+    <param name ="annotated_image_topic" value = "$(arg annotated_image_topic)"/>
+    <param name ="state_topic" value = "$(arg state_topic)"/>
+    <param name ="save_annotated_image" value = "$(arg save_annotated_image)"/>
+    <param name ="annotated_image_path" value = "$(arg annotated_image_path)"/>
+    <param name ="save_raw_image" value = "$(arg save_raw_image)"/>
+    <param name ="raw_image_path" value = "$(arg raw_image_path)"/>
+    <param name ="allow_start_without_groundingdino" value = "$(arg allow_start_without_groundingdino)"/>
+    <param name ="allow_start_without_backend" value = "$(arg allow_start_without_backend)"/>
+    <param name ="execute_grasp" value = "$(arg execute_grasp)"/>
+    <param name ="move_to_search_pose_on_startup" value = "$(arg move_to_search_pose_on_startup)"/>
+    <param name ="search_pose_mode" value = "$(arg search_pose_mode)"/>
+    <param name ="search_pose_x" value = "$(arg search_pose_x)"/>
+    <param name ="search_pose_y" value = "$(arg search_pose_y)"/>
+    <param name ="search_pose_z" value = "$(arg search_pose_z)"/>
+    <param name ="search_pose_roll" value = "$(arg search_pose_roll)"/>
+    <param name ="search_pose_pitch" value = "$(arg search_pose_pitch)"/>
+    <param name ="search_pose_yaw" value = "$(arg search_pose_yaw)"/>
+    <param name ="pick_view_via_intermediate" value = "$(arg pick_view_via_intermediate)"/>
+    <param name ="pick_view_allow_direct_fallback" value = "$(arg pick_view_allow_direct_fallback)"/>
+    <param name ="pick_view_recover_via_stay" value = "$(arg pick_view_recover_via_stay)"/>
+    <param name ="pick_view_recover_pause_sec" value = "$(arg pick_view_recover_pause_sec)"/>
+    <param name ="pick_view_move_retries" value = "$(arg pick_view_move_retries)"/>
+    <param name ="pick_view_retry_interval" value = "$(arg pick_view_retry_interval)"/>
+    <param name ="pick_intermediate_x" value = "$(arg pick_intermediate_x)"/>
+    <param name ="pick_intermediate_y" value = "$(arg pick_intermediate_y)"/>
+    <param name ="pick_intermediate_z" value = "$(arg pick_intermediate_z)"/>
+    <param name ="pick_intermediate_roll" value = "$(arg pick_intermediate_roll)"/>
+    <param name ="pick_intermediate_pitch" value = "$(arg pick_intermediate_pitch)"/>
+    <param name ="pick_intermediate_yaw" value = "$(arg pick_intermediate_yaw)"/>
+    <param name ="return_to_search_pose_after_grasp" value = "$(arg return_to_search_pose_after_grasp)"/>
+    <param name ="pick_orientation_mode" value = "$(arg pick_orientation_mode)"/>
+    <param name ="drop_after_grasp" value = "$(arg drop_after_grasp)"/>
+    <param name ="clear_target_after_success" value = "$(arg clear_target_after_success)"/>
+    <param name ="clear_target_after_failure" value = "$(arg clear_target_after_failure)"/>
+    <param name ="drop_x" value = "$(arg drop_x)"/>
+    <param name ="drop_y" value = "$(arg drop_y)"/>
+    <param name ="drop_z" value = "$(arg drop_z)"/>
+    <param name ="dynamic_place_z" value = "$(arg dynamic_place_z)"/>
+    <param name ="relative_place_offset_y" value = "$(arg relative_place_offset_y)"/>
+    <param name ="rejection_motion_enabled" value = "$(arg rejection_motion_enabled)"/>
+    <param name ="rejection_yaw_delta" value = "$(arg rejection_yaw_delta)"/>
+    <param name ="rejection_cycles" value = "$(arg rejection_cycles)"/>
+    <param name ="rejection_pause_sec" value = "$(arg rejection_pause_sec)"/>
+    <param name ="place_front_view_enabled" value = "$(arg place_front_view_enabled)"/>
+    <param name ="place_front_view_vision_config" value = "$(arg place_front_view_vision_config)"/>
+    <param name ="place_front_view_x" value = "$(arg place_front_view_x)"/>
+    <param name ="place_front_view_y" value = "$(arg place_front_view_y)"/>
+    <param name ="place_front_view_z" value = "$(arg place_front_view_z)"/>
+    <param name ="place_front_view_roll" value = "$(arg place_front_view_roll)"/>
+    <param name ="place_front_view_pitch" value = "$(arg place_front_view_pitch)"/>
+    <param name ="place_front_view_yaw" value = "$(arg place_front_view_yaw)"/>
+    <param name ="place_scan_view_order" value = "$(arg place_scan_view_order)"/>
+    <param name ="scan_view_order" value = "$(arg scan_view_order)"/>
+    <param name ="scan_attempts_per_view" value = "$(arg scan_attempts_per_view)"/>
+    <param name ="scan_stable_required" value = "$(arg scan_stable_required)"/>
+    <param name ="scan_retry_interval" value = "$(arg scan_retry_interval)"/>
+    <param name ="scan_settle_sec" value = "$(arg scan_settle_sec)"/>
+    <param name ="left_view_enabled" value = "$(arg left_view_enabled)"/>
+    <param name ="left_view_vision_config" value = "$(arg left_view_vision_config)"/>
+    <param name ="left_view_x" value = "$(arg left_view_x)"/>
+    <param name ="left_view_y" value = "$(arg left_view_y)"/>
+    <param name ="left_view_z" value = "$(arg left_view_z)"/>
+    <param name ="left_view_roll" value = "$(arg left_view_roll)"/>
+    <param name ="left_view_pitch" value = "$(arg left_view_pitch)"/>
+    <param name ="left_view_yaw" value = "$(arg left_view_yaw)"/>
+    <param name ="right_view_enabled" value = "$(arg right_view_enabled)"/>
+    <param name ="right_view_vision_config" value = "$(arg right_view_vision_config)"/>
+    <param name ="right_view_x" value = "$(arg right_view_x)"/>
+    <param name ="right_view_y" value = "$(arg right_view_y)"/>
+    <param name ="right_view_z" value = "$(arg right_view_z)"/>
+    <param name ="right_view_roll" value = "$(arg right_view_roll)"/>
+    <param name ="right_view_pitch" value = "$(arg right_view_pitch)"/>
+    <param name ="right_view_yaw" value = "$(arg right_view_yaw)"/>
+  </node>
+
+</launch>

@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Single-machine language-guided grasp runner.
+# Default is dry-run for safety. Set EXECUTE_GRASP=true for real grasp.
+
+WS_DIR="${SAGITTARIUS_WS:-$HOME/sagittarius_ws}"
+PACKAGE_DIR="$WS_DIR/src/sagittarius_arm_ros/sagittarius_perception/sagittarius_object_color_detector"
+GROUNDINGDINO_ROOT="${GROUNDINGDINO_ROOT:-/mnt/d/ai_models/GroundingDINO}"
+GROUNDINGDINO_VENV="${GROUNDINGDINO_VENV:-/mnt/d/ai_models/groundingdino-venv}"
+GROUNDINGDINO_CONFIG="${GROUNDINGDINO_CONFIG:-$GROUNDINGDINO_ROOT/groundingdino/config/GroundingDINO_SwinT_OGC.py}"
+GROUNDINGDINO_WEIGHTS="${GROUNDINGDINO_WEIGHTS:-$GROUNDINGDINO_ROOT/weights/groundingdino_swint_ogc.pth}"
+
+VIDEO_DEV="${VIDEO_DEV:-/dev/video0}"
+PIXEL_FORMAT="${PIXEL_FORMAT:-mjpeg}"
+IMAGE_WIDTH="${IMAGE_WIDTH:-640}"
+IMAGE_HEIGHT="${IMAGE_HEIGHT:-480}"
+FRAMERATE="${FRAMERATE:-10}"
+
+DEVICE="${DEVICE:-cuda}"
+EXECUTE_GRASP="${EXECUTE_GRASP:-false}"
+TARGET_TEXT="${TARGET_TEXT:-}"
+VISION_CONFIG="${VISION_CONFIG:-$PACKAGE_DIR/config/vision_config_pick_front.yaml}"
+# Use the old color-grasp XYZ/RPY search pose by default so the arm camera
+# looks toward the table. Avoid the legacy DEFINE_STAY joint preset because it
+# can fold the arm upward and point the camera at the ceiling.
+SEARCH_POSE_MODE="${SEARCH_POSE_MODE:-xyz_rpy}"
+SEARCH_POSE_X="${SEARCH_POSE_X:-0.20}"
+SEARCH_POSE_Y="${SEARCH_POSE_Y:-0.00}"
+SEARCH_POSE_Z="${SEARCH_POSE_Z:-0.22}"
+SEARCH_POSE_ROLL="${SEARCH_POSE_ROLL:-0.0}"
+SEARCH_POSE_PITCH="${SEARCH_POSE_PITCH:-1.57}"
+SEARCH_POSE_YAW="${SEARCH_POSE_YAW:-0.0}"
+RETURN_TO_SEARCH_POSE_AFTER_GRASP="${RETURN_TO_SEARCH_POSE_AFTER_GRASP:-false}"
+PICK_ORIENTATION_MODE="${PICK_ORIENTATION_MODE:-fixed}"
+DROP_AFTER_GRASP="${DROP_AFTER_GRASP:-false}"
+SGR_CTRL_INIT_POSE="${SGR_CTRL_INIT_POSE:-true}"
+MOVE_TO_SEARCH_POSE_ON_STARTUP="${MOVE_TO_SEARCH_POSE_ON_STARTUP:-true}"
+PLACE_FRONT_VIEW_ENABLED="${PLACE_FRONT_VIEW_ENABLED:-true}"
+PLACE_FRONT_VIEW_VISION_CONFIG="${PLACE_FRONT_VIEW_VISION_CONFIG:-$PACKAGE_DIR/config/vision_config_place_front.yaml}"
+PLACE_FRONT_VIEW_X="${PLACE_FRONT_VIEW_X:-0.20}"
+PLACE_FRONT_VIEW_Y="${PLACE_FRONT_VIEW_Y:-0.00}"
+PLACE_FRONT_VIEW_Z="${PLACE_FRONT_VIEW_Z:-0.22}"
+PLACE_FRONT_VIEW_ROLL="${PLACE_FRONT_VIEW_ROLL:-0.0}"
+PLACE_FRONT_VIEW_PITCH="${PLACE_FRONT_VIEW_PITCH:-1.57}"
+PLACE_FRONT_VIEW_YAW="${PLACE_FRONT_VIEW_YAW:-0.0}"
+PLACE_SCAN_VIEW_ORDER="${PLACE_SCAN_VIEW_ORDER:-front}"
+SCAN_ATTEMPTS_PER_VIEW="${SCAN_ATTEMPTS_PER_VIEW:-2}"
+SCAN_STABLE_REQUIRED="${SCAN_STABLE_REQUIRED:-2}"
+SCAN_SETTLE_SEC="${SCAN_SETTLE_SEC:-0.2}"
+REJECTION_MOTION_ENABLED="${REJECTION_MOTION_ENABLED:-false}"
+RELATIVE_PLACE_OFFSET_Y="${RELATIVE_PLACE_OFFSET_Y:-0.05}"
+LEFT_VIEW_ENABLED="${LEFT_VIEW_ENABLED:-false}"
+LEFT_VIEW_VISION_CONFIG="${LEFT_VIEW_VISION_CONFIG:-}"
+LEFT_VIEW_X="${LEFT_VIEW_X:-0.23}"
+LEFT_VIEW_Y="${LEFT_VIEW_Y:-0.10}"
+LEFT_VIEW_Z="${LEFT_VIEW_Z:-0.23}"
+LEFT_VIEW_ROLL="${LEFT_VIEW_ROLL:-0.0}"
+LEFT_VIEW_PITCH="${LEFT_VIEW_PITCH:-1.57}"
+LEFT_VIEW_YAW="${LEFT_VIEW_YAW:-1.10}"
+RIGHT_VIEW_ENABLED="${RIGHT_VIEW_ENABLED:-false}"
+RIGHT_VIEW_VISION_CONFIG="${RIGHT_VIEW_VISION_CONFIG:-}"
+RIGHT_VIEW_X="${RIGHT_VIEW_X:-0.23}"
+RIGHT_VIEW_Y="${RIGHT_VIEW_Y:--0.10}"
+RIGHT_VIEW_Z="${RIGHT_VIEW_Z:-0.23}"
+RIGHT_VIEW_ROLL="${RIGHT_VIEW_ROLL:-0.0}"
+RIGHT_VIEW_PITCH="${RIGHT_VIEW_PITCH:-1.57}"
+RIGHT_VIEW_YAW="${RIGHT_VIEW_YAW:--1.10}"
+SAVE_RAW_IMAGE="${SAVE_RAW_IMAGE:-true}"
+RAW_IMAGE_PATH="${RAW_IMAGE_PATH:-/tmp/language_guided_grasp_raw_single_gpu.jpg}"
+SAVE_ANNOTATED_IMAGE="${SAVE_ANNOTATED_IMAGE:-true}"
+ANNOTATED_IMAGE_PATH="${ANNOTATED_IMAGE_PATH:-/tmp/language_guided_grasp_single_gpu.jpg}"
+HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
+
+cd "$WS_DIR"
+source "$GROUNDINGDINO_VENV/bin/activate"
+source /opt/ros/noetic/setup.bash
+source "$WS_DIR/devel/setup.bash"
+
+export PYTHONPATH="$GROUNDINGDINO_ROOT:${PYTHONPATH:-}"
+export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/matplotlib-cfg}"
+export HF_HUB_OFFLINE
+export TRANSFORMERS_OFFLINE
+mkdir -p "$MPLCONFIGDIR"
+
+roslaunch sagittarius_object_color_detector language_guided_grasp.launch \
+  sgr_ctrl_init_pose:="$SGR_CTRL_INIT_POSE" \
+  device:="$DEVICE" \
+  video_dev:="$VIDEO_DEV" \
+  pixel_format:="$PIXEL_FORMAT" \
+  image_width:="$IMAGE_WIDTH" \
+  image_height:="$IMAGE_HEIGHT" \
+  framerate:="$FRAMERATE" \
+  min_detection_interval:=0.5 \
+  stable_required:=3 \
+  center_tolerance:=12.0 \
+  min_grasp_score:=0.35 \
+  vision_config:="$VISION_CONFIG" \
+  execute_grasp:="$EXECUTE_GRASP" \
+  move_to_search_pose_on_startup:="$MOVE_TO_SEARCH_POSE_ON_STARTUP" \
+  search_pose_mode:="$SEARCH_POSE_MODE" \
+  search_pose_x:="$SEARCH_POSE_X" \
+  search_pose_y:="$SEARCH_POSE_Y" \
+  search_pose_z:="$SEARCH_POSE_Z" \
+  search_pose_roll:="$SEARCH_POSE_ROLL" \
+  search_pose_pitch:="$SEARCH_POSE_PITCH" \
+  search_pose_yaw:="$SEARCH_POSE_YAW" \
+  return_to_search_pose_after_grasp:="$RETURN_TO_SEARCH_POSE_AFTER_GRASP" \
+  pick_orientation_mode:="$PICK_ORIENTATION_MODE" \
+  drop_after_grasp:="$DROP_AFTER_GRASP" \
+  dynamic_place_z:="${DYNAMIC_PLACE_Z:-0.20}" \
+  relative_place_offset_y:="$RELATIVE_PLACE_OFFSET_Y" \
+  rejection_motion_enabled:="$REJECTION_MOTION_ENABLED" \
+  place_front_view_enabled:="$PLACE_FRONT_VIEW_ENABLED" \
+  place_front_view_vision_config:="$PLACE_FRONT_VIEW_VISION_CONFIG" \
+  place_front_view_x:="$PLACE_FRONT_VIEW_X" \
+  place_front_view_y:="$PLACE_FRONT_VIEW_Y" \
+  place_front_view_z:="$PLACE_FRONT_VIEW_Z" \
+  place_front_view_roll:="$PLACE_FRONT_VIEW_ROLL" \
+  place_front_view_pitch:="$PLACE_FRONT_VIEW_PITCH" \
+  place_front_view_yaw:="$PLACE_FRONT_VIEW_YAW" \
+  place_scan_view_order:="$PLACE_SCAN_VIEW_ORDER" \
+  scan_attempts_per_view:="$SCAN_ATTEMPTS_PER_VIEW" \
+  scan_stable_required:="$SCAN_STABLE_REQUIRED" \
+  scan_settle_sec:="$SCAN_SETTLE_SEC" \
+  left_view_enabled:="$LEFT_VIEW_ENABLED" \
+  left_view_vision_config:="$LEFT_VIEW_VISION_CONFIG" \
+  left_view_x:="$LEFT_VIEW_X" \
+  left_view_y:="$LEFT_VIEW_Y" \
+  left_view_z:="$LEFT_VIEW_Z" \
+  left_view_roll:="$LEFT_VIEW_ROLL" \
+  left_view_pitch:="$LEFT_VIEW_PITCH" \
+  left_view_yaw:="$LEFT_VIEW_YAW" \
+  right_view_enabled:="$RIGHT_VIEW_ENABLED" \
+  right_view_vision_config:="$RIGHT_VIEW_VISION_CONFIG" \
+  right_view_x:="$RIGHT_VIEW_X" \
+  right_view_y:="$RIGHT_VIEW_Y" \
+  right_view_z:="$RIGHT_VIEW_Z" \
+  right_view_roll:="$RIGHT_VIEW_ROLL" \
+  right_view_pitch:="$RIGHT_VIEW_PITCH" \
+  right_view_yaw:="$RIGHT_VIEW_YAW" \
+  save_raw_image:="$SAVE_RAW_IMAGE" \
+  raw_image_path:="$RAW_IMAGE_PATH" \
+  save_annotated_image:="$SAVE_ANNOTATED_IMAGE" \
+  annotated_image_path:="$ANNOTATED_IMAGE_PATH" \
+  groundingdino_config:="$GROUNDINGDINO_CONFIG" \
+  groundingdino_weights:="$GROUNDINGDINO_WEIGHTS" \
+  default_target_text:="$TARGET_TEXT"

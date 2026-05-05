@@ -1,0 +1,104 @@
+<launch>
+  <!-- Compatibility wrapper. Prefer language_guided_grasp.launch. -->
+  <arg name="robot_name" default="sgr532"/>
+  <arg name="node_name" default="color_classification_node"/>
+  <arg name="video_dev" default="/dev/usb_cam"/>
+  <arg name="image_width" default="640"/>
+  <arg name="image_height" default="480"/>
+  <arg name="framerate" default="30"/>
+  <arg name="pixel_format" default="yuyv"/>
+  <arg name="io_method" default="mmap"/>
+  <arg name="usb_cam_output" default="log"/>
+  <arg name="usb_cam_stderr_log" default="$(env HOME)/.ros/log/usb_cam_stderr.log"/>
+  <arg name="vision_config" default="$(find sagittarius_object_color_detector)/config/vision_config.yaml"/>
+  <arg name="perception_backend" default="grounding_dino"/>
+  <arg name="groundingdino_config" default="$(env HOME)/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"/>
+  <arg name="groundingdino_weights" default="$(env HOME)/GroundingDINO/weights/groundingdino_swint_ogc.pth"/>
+  <arg name="default_target_text" default=""/>
+  <arg name="target_topic" default="/grasp_target_text"/>
+  <arg name="device" default="cuda"/>
+  <arg name="box_threshold" default="0.35"/>
+  <arg name="text_threshold" default="0.25"/>
+  <arg name="min_grasp_score" default="0.35"/>
+  <arg name="min_target_text_length" default="2"/>
+  <arg name="stable_required" default="5"/>
+  <arg name="center_tolerance" default="8.0"/>
+  <arg name="pick_z" default="0.01"/>
+  <arg name="publish_annotated_image" default="true"/>
+  <arg name="annotated_image_topic" default="/language_guided_grasp/annotated_image"/>
+  <arg name="state_topic" default="/language_guided_grasp/state"/>
+  <arg name="save_annotated_image" default="false"/>
+  <arg name="annotated_image_path" default="/tmp/language_guided_grasp_latest.jpg"/>
+  <arg name="save_raw_image" default="false"/>
+  <arg name="raw_image_path" default="/tmp/language_guided_grasp_raw.jpg"/>
+  <arg name="allow_start_without_groundingdino" default="false"/>
+  <arg name="allow_start_without_backend" default="$(arg allow_start_without_groundingdino)"/>
+  <arg name="execute_grasp" default="true"/>
+  <arg name="search_pose_mode" default="none"/>
+  <arg name="search_pose_x" default="0.20"/>
+  <arg name="search_pose_y" default="0.00"/>
+  <arg name="search_pose_z" default="0.15"/>
+  <arg name="search_pose_roll" default="0.0"/>
+  <arg name="search_pose_pitch" default="1.57"/>
+  <arg name="search_pose_yaw" default="0.0"/>
+  <arg name="return_to_search_pose_after_grasp" default="false"/>
+  <arg name="pick_orientation_mode" default="auto"/>
+  <arg name="drop_after_grasp" default="true"/>
+  <arg name="clear_target_after_success" default="true"/>
+  <arg name="clear_target_after_failure" default="true"/>
+  <arg name="drop_x" default="0.15"/>
+  <arg name="drop_y" default="0.24"/>
+  <arg name="drop_z" default="0.20"/>
+
+  <include file="$(find sagittarius_object_color_detector)/launch/language_guided_grasp.launch">
+    <arg name="robot_name" value="$(arg robot_name)"/>
+    <arg name="node_name" value="$(arg node_name)"/>
+    <arg name="video_dev" value="$(arg video_dev)"/>
+    <arg name="image_width" value="$(arg image_width)"/>
+    <arg name="image_height" value="$(arg image_height)"/>
+    <arg name="framerate" value="$(arg framerate)"/>
+    <arg name="pixel_format" value="$(arg pixel_format)"/>
+    <arg name="io_method" value="$(arg io_method)"/>
+    <arg name="usb_cam_output" value="$(arg usb_cam_output)"/>
+    <arg name="usb_cam_stderr_log" value="$(arg usb_cam_stderr_log)"/>
+    <arg name="vision_config" value="$(arg vision_config)"/>
+    <arg name="perception_backend" value="$(arg perception_backend)"/>
+    <arg name="groundingdino_config" value="$(arg groundingdino_config)"/>
+    <arg name="groundingdino_weights" value="$(arg groundingdino_weights)"/>
+    <arg name="default_target_text" value="$(arg default_target_text)"/>
+    <arg name="target_topic" value="$(arg target_topic)"/>
+    <arg name="device" value="$(arg device)"/>
+    <arg name="box_threshold" value="$(arg box_threshold)"/>
+    <arg name="text_threshold" value="$(arg text_threshold)"/>
+    <arg name="min_grasp_score" value="$(arg min_grasp_score)"/>
+    <arg name="min_target_text_length" value="$(arg min_target_text_length)"/>
+    <arg name="stable_required" value="$(arg stable_required)"/>
+    <arg name="center_tolerance" value="$(arg center_tolerance)"/>
+    <arg name="pick_z" value="$(arg pick_z)"/>
+    <arg name="publish_annotated_image" value="$(arg publish_annotated_image)"/>
+    <arg name="annotated_image_topic" value="$(arg annotated_image_topic)"/>
+    <arg name="state_topic" value="$(arg state_topic)"/>
+    <arg name="save_annotated_image" value="$(arg save_annotated_image)"/>
+    <arg name="annotated_image_path" value="$(arg annotated_image_path)"/>
+    <arg name="save_raw_image" value="$(arg save_raw_image)"/>
+    <arg name="raw_image_path" value="$(arg raw_image_path)"/>
+    <arg name="allow_start_without_groundingdino" value="$(arg allow_start_without_groundingdino)"/>
+    <arg name="allow_start_without_backend" value="$(arg allow_start_without_backend)"/>
+    <arg name="execute_grasp" value="$(arg execute_grasp)"/>
+    <arg name="search_pose_mode" value="$(arg search_pose_mode)"/>
+    <arg name="search_pose_x" value="$(arg search_pose_x)"/>
+    <arg name="search_pose_y" value="$(arg search_pose_y)"/>
+    <arg name="search_pose_z" value="$(arg search_pose_z)"/>
+    <arg name="search_pose_roll" value="$(arg search_pose_roll)"/>
+    <arg name="search_pose_pitch" value="$(arg search_pose_pitch)"/>
+    <arg name="search_pose_yaw" value="$(arg search_pose_yaw)"/>
+    <arg name="return_to_search_pose_after_grasp" value="$(arg return_to_search_pose_after_grasp)"/>
+    <arg name="pick_orientation_mode" value="$(arg pick_orientation_mode)"/>
+    <arg name="drop_after_grasp" value="$(arg drop_after_grasp)"/>
+    <arg name="clear_target_after_success" value="$(arg clear_target_after_success)"/>
+    <arg name="clear_target_after_failure" value="$(arg clear_target_after_failure)"/>
+    <arg name="drop_x" value="$(arg drop_x)"/>
+    <arg name="drop_y" value="$(arg drop_y)"/>
+    <arg name="drop_z" value="$(arg drop_z)"/>
+  </include>
+</launch>
